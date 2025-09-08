@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Meeting Scheduler</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h2>Available Slots</h2>
+  <div id="slots"></div>
+
+  <h3>Book a Meeting</h3>
+  <input id="name" placeholder="Name"><br><br>
+  <input id="email" placeholder="Email"><br><br>
+  <button onclick="bookMeeting()">Book</button>
+
+  <h2>Scheduled Meetings</h2>
+  <div id="meetings"></div>
+
+  <script>
+    let selectedSlot = null;
+
+async function loadSlots() {
+  const res = await fetch("/api/slots");
+  const slots = await res.json();
+
+  const div = document.getElementById("slots");
+  div.innerHTML = "";
+  const meetingDiv = document.getElementById("meetings");
+  meetingDiv.innerHTML = "";
+
+  slots.forEach(s => {
+    if (s.available > 0) {
+      const el = document.createElement("div");
+      el.className = "slot";
+      el.innerText = `${s.time} - ${s.available} Available`;
+
+      el.onclick = () => {
+        selectedSlot = s.id;
+
+        document.querySelectorAll(".slot").forEach(slotEl => {
+          slotEl.classList.remove("selected");
+        });
+
+        el.classList.add("selected");
+      };
+
+      div.appendChild(el);
+    }
+
+    s.Meetings.forEach(m => {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        Hi ${m.name},<br>
+        Please join the meeting via this 
+        <a href="${m.link}" target="_blank">${m.link}</a> at ${m.time}<br>
+        <button onclick="cancelMeeting(${m.id})">Cancel</button>
+      `;
+      meetingDiv.appendChild(card);
+    });
+  });
+}
+
+
+ async function bookMeeting() {
+  const nameInput = document.getElementById("name");
+  const emailInput = document.getElementById("email");
+
+  const name = nameInput.value.trim();
+  const email = emailInput.value.trim();
+
+  if (!selectedSlot) return alert("Select a slot first");
+  if (!name || !email) return alert("Please enter name and email");
+
+  const res = await fetch("/api/book", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, email, slotId: selectedSlot })
+  });
+
+  if (res.ok) {
+    loadSlots();
+    nameInput.value = "";
+    emailInput.value = "";
+    selectedSlot = null; 
+    document.querySelectorAll(".slot").forEach(slotEl => {
+      slotEl.classList.remove("selected");
+    });
+  } else {
+    alert("Slots unavailable");
+  }
+}
+
+
+    async function cancelMeeting(id) {
+      await fetch("/api/cancel/" + id, { method: "DELETE" });
+      loadSlots();
+    }
+
+    loadSlots();
+  </script>
+</body>
+</html>
